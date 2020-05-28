@@ -1,1 +1,1 @@
-# smartwatch-wp
+# Smartwatch WordPress theme

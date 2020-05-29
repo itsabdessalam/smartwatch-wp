@@ -402,3 +402,26 @@ function post_published_notification($ID, $post)
 }
 
 add_action('publish_post', 'post_published_notification', 10, 2);
+
+/**
+ * Add product columns that will be displayed on dashboard
+ */
+function product_columns($columns)
+{
+    $columns['stock'] = __('Stock');
+    return $columns;
+}
+
+add_filter('manage_product_posts_columns', 'product_columns');
+
+/**
+ * Fill product columns
+ */
+function fill_product_columns($column, $post_id)
+{
+    if ($column === 'stock') {
+        echo get_field('stock', $post_id);
+    }
+}
+
+add_action('manage_product_posts_custom_column', 'fill_product_columns', 10, 2);

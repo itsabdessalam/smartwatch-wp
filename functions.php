@@ -8,6 +8,38 @@ if (!defined('ABSPATH')) {
 define('NETLIFY_BUILD_HOOK', getenv('NETLIFY_BUILD_HOOK'));
 
 /**
+ * Check whether user is authenticated or not
+ */
+function get_user_credentials($authorization)
+{
+
+    $base64decoded = base64_decode($authorization);
+    $user          = explode(':', $base64decoded);
+    $username      = $user[0];
+    $password      = $user[1];
+
+    if (!empty($username) && !empty($password)) {
+        return [
+            "username" => $username,
+            "password" => $password,
+        ];
+    }
+
+    return [];
+}
+
+/**
+ * Check whether user is authenticated or not
+ */
+function is_authenticated($user)
+{
+    $username = $user["username"];
+    $password = $user["password"];
+
+    return !is_wp_error(wp_authenticate_username_password(null, $username, $password));
+}
+
+/**
  * Enqueue scripts and styles
  */
 function load_scripts()
@@ -281,6 +313,34 @@ function get_product_by_id($data)
 }
 
 /**
+ * Update stock quantity for each received product
+ */
+function update_stock(WP_REST_Request $request)
+{
+    $authorization = $request->get_header('authorization');
+    $user          = get_user_credentials($authorization);
+
+    if (empty($user) || !is_authenticated($user)) {
+        return new WP_Error('rest_not_logged_in', 'You are not currently logged in.', array('status' => 401));
+    }
+
+    $data     = $request->get_params();
+    $products = $data["products"];
+
+    if (empty($data) || empty($products)) {
+        return new WP_Error('rest_invalid_payload', 'You provided empty or invalid payload.', array('status' => 400));
+    }
+
+    foreach ($products as $key => $product) {
+        $stock = get_field('stock', $product["id"]);
+        $stock -= $product["quantity"];
+        update_field('stock', $stock, $product["id"]);
+    }
+
+    return true;
+}
+
+/**
  * Register custom routes
  */
 function register_custom_rest_routes()
@@ -303,6 +363,11 @@ function register_custom_rest_routes()
     register_rest_route('custom/v1', '/products/(?P<id>\d+)', array(
         'methods'  => 'GET',
         'callback' => 'get_product_by_id',
+    ));
+
+    register_rest_route('custom/v1', '/stock', array(
+        'methods'  => 'POST',
+        'callback' => 'update_stock',
     ));
 }
 
